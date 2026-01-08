@@ -1,0 +1,12 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+
+# OS/editor
+.DS_Store
+Thumbs.db

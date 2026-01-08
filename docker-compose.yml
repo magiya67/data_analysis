@@ -1,0 +1,20 @@
+services:
+  app_db:
+    image: postgres:16
+    container_name: mini_app_db
+    environment:
+      POSTGRES_DB: ${APP_DB_NAME:-appdb}
+      POSTGRES_USER: ${APP_DB_USER:-appuser}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-apppassword}
+    ports:
+      - "5432:5432"
+    volumes:
+      - app_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-appuser} -d ${APP_DB_NAME:-appdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  app_db_data:
