@@ -32,6 +32,96 @@ services:
       PERIOD_SEC: ${GEN_PERIOD_SEC:-1}
       STATION_ID: ${GEN_STATION_ID:-AMS-01}
     restart: unless-stopped
+  redash_db:
+    image: postgres:16
+    container_name: mini_redash_db
+    environment:
+      POSTGRES_DB: ${REDASH_DB_NAME:-redash}
+      POSTGRES_USER: ${REDASH_DB_USER:-redash}
+      POSTGRES_PASSWORD: ${REDASH_DB_PASSWORD:-redash}
+    volumes:
+      - redash_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${REDASH_DB_USER:-redash} -d ${REDASH_DB_NAME:-redash}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    container_name: mini_redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redash_init:
+    image: redash/redash:25.1.0
+    container_name: mini_redash_init
+    depends_on:
+      redash_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: ./.env
+    environment:
+      REDASH_DATABASE_URL: postgresql://${REDASH_DB_USER:-redash}:${REDASH_DB_PASSWORD:-redash}@${REDASH_DB_HOST:-redash_db}:${REDASH_DB_PORT:-5432}/${REDASH_DB_NAME:-redash}
+      REDASH_REDIS_URL: redis://redis:6379/0
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_SECRET_KEY: ${REDASH_SECRET_KEY}
+    command: create_db
+    restart: "no"
+
+  redash_server:
+    image: redash/redash:25.1.0
+    container_name: mini_redash_server
+    depends_on:
+      redash_init:
+        condition: service_completed_successfully
+    env_file: ./.env
+    environment:
+      REDASH_DATABASE_URL: postgresql://${REDASH_DB_USER:-redash}:${REDASH_DB_PASSWORD:-redash}@${REDASH_DB_HOST:-redash_db}:${REDASH_DB_PORT:-5432}/${REDASH_DB_NAME:-redash}
+      REDASH_REDIS_URL: redis://redis:6379/0
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_SECRET_KEY: ${REDASH_SECRET_KEY}
+      REDASH_WEB_WORKERS: 2
+    ports:
+      - "5000:5000"
+    command: server
+    restart: unless-stopped
+
+  redash_worker:
+    image: redash/redash:25.1.0
+    container_name: mini_redash_worker
+    depends_on:
+      redash_server:
+        condition: service_started
+    env_file: ./.env
+    environment:
+      REDASH_DATABASE_URL: postgresql://${REDASH_DB_USER:-redash}:${REDASH_DB_PASSWORD:-redash}@${REDASH_DB_HOST:-redash_db}:${REDASH_DB_PORT:-5432}/${REDASH_DB_NAME:-redash}
+      REDASH_REDIS_URL: redis://redis:6379/0
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_SECRET_KEY: ${REDASH_SECRET_KEY}
+    command: worker
+    restart: unless-stopped
+
+  redash_scheduler:
+    image: redash/redash:25.1.0
+    container_name: mini_redash_scheduler
+    depends_on:
+      redash_server:
+        condition: service_started
+    env_file: ./.env
+    environment:
+      REDASH_DATABASE_URL: postgresql://${REDASH_DB_USER:-redash}:${REDASH_DB_PASSWORD:-redash}@${REDASH_DB_HOST:-redash_db}:${REDASH_DB_PORT:-5432}/${REDASH_DB_NAME:-redash}
+      REDASH_REDIS_URL: redis://redis:6379/0
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_SECRET_KEY: ${REDASH_SECRET_KEY}
+    command: scheduler
+    restart: unless-stopped
 volumes:
   app_db_data: {}
+  redash_db_data: {}
+
 
