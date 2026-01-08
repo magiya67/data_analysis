@@ -120,6 +120,28 @@ services:
       REDASH_SECRET_KEY: ${REDASH_SECRET_KEY}
     command: scheduler
     restart: unless-stopped
+  jupyter:
+    build:
+      context: ./jupyter
+      dockerfile: Dockerfile
+    container_name: mini_jupyter
+    depends_on:
+      app_db:
+        condition: service_healthy
+    env_file: ./.env
+    environment:
+      APP_DB_HOST: ${APP_DB_HOST:-app_db}
+      APP_DB_PORT: ${APP_DB_PORT:-5432}
+      APP_DB_NAME: ${APP_DB_NAME:-appdb}
+      APP_DB_USER: ${APP_DB_USER:-appuser}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-apppassword}
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-local-dev-token}
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/work
+    restart: unless-stopped
+
 volumes:
   app_db_data: {}
   redash_db_data: {}
